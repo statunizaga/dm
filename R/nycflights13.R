@@ -25,7 +25,7 @@
 #'   dm_nycflights13() %>%
 #'     dm_draw()
 #' }
-dm_nycflights13 <- function(cycle = FALSE, color = TRUE, subset = TRUE) {
+dm_nycflights13 <- function(cycle = FALSE, color = TRUE, subset = TRUE, compound = FALSE) {
   airlines <- nycflights13::airlines
   airports <- nycflights13::airports
   planes <- nycflights13::planes
@@ -46,6 +46,13 @@ dm_nycflights13 <- function(cycle = FALSE, color = TRUE, subset = TRUE) {
     dm_add_fk(flights, tailnum, planes, check = FALSE) %>%
     dm_add_fk(flights, carrier, airlines) %>%
     dm_add_fk(flights, origin, airports)
+
+  if (compound) {
+    dm <-
+      dm %>%
+      dm_add_pk(weather, c(origin, time_hour)) %>%
+      dm_add_fk(flights, c(origin, time_hour), weather)
+  }
 
   if (color) {
     dm <-
