@@ -13,27 +13,15 @@ systime_convenient <- function() {
 }
 
 # Internal copy helper functions
-build_copy_data <- function(dm, dest, table_names, unique_table_names) {
+build_copy_data <- function(dm, dest, table_names) {
   source <-
     dm %>%
     dm_apply_filters() %>%
     dm_get_tables_impl()
 
-  # Also need table names for local src (?)
-  if (!is.null(table_names)) {
-    mapped_names <- unname(table_names[names(source)])
-    dest_names <- coalesce(mapped_names, names(source))
-  } else if (unique_table_names) {
-    dest_names <- map_chr(names(source), unique_db_table_name)
-  } else {
-    dest_names <- names(source)
-  }
-
   copy_data_base <-
-    source %>%
-    as.list() %>%
-    enframe(name = "source_name", value = "df") %>%
-    mutate(name = map(!!dest_names, dbplyr::ident_q))
+    tibble(source_name = src_tbls(dm), name = table_names) %>%
+    mutate(df = map(source_name, function(x) tbl(dm, x)))
 
   if (is_db(dest)) {
     dest_con <- con_from_src_or_con(dest)
@@ -87,7 +75,6 @@ build_copy_data <- function(dm, dest, table_names, unique_table_names) {
 # Not exported, to give us flexibility to change easily
 copy_list_of_tables_to <- function(dest, copy_data,
                                    ..., overwrite = FALSE, df = NULL, name = NULL, types = NULL) {
-  #
   pmap(copy_data, copy_to, dest = dest, overwrite = overwrite, ...)
 }
 
@@ -113,7 +100,7 @@ queries_set_fk_relations <- function(dest, fk_information) {
         db_parent_tables,
         parent_pk_col
       ),
-      ~ glue_sql("ALTER TABLE {`..1`} ADD FOREIGN KEY ({`..2`*}) REFERENCES {`..3`} ({`..4`*}) ON DELETE CASCADE ON UPDATE CASCADE", .con = dest)
+      ~ glue_sql("ALTER TABLE {`DBI::SQL(..1)`} ADD FOREIGN KEY ({`..2`*}) REFERENCES {`DBI::SQL(..3)`} ({`..4`*}) ON DELETE CASCADE ON UPDATE CASCADE", .con = dest)
     )
   } else {
     return(character())
@@ -130,16 +117,6 @@ class_to_db_class <- function(dest, class_vector) {
   } else {
     return(class_vector)
   }
-}
-
-get_db_table_names <- function(dm) {
-  if (!is_src_db(dm)) {
-    return(tibble(table_name = src_tbls(dm), remote_name = src_tbls(dm)))
-  }
-  tibble(
-    table_name = src_tbls(dm),
-    remote_name = map_chr(dm_get_tables_impl(dm), list("ops", "x"))
-  )
 }
 
 is_db <- function(x) {
@@ -168,4 +145,20 @@ src_from_src_or_con <- function(dest) {
 
 con_from_src_or_con <- function(dest) {
   if (is.src(dest)) dest$con else dest
+}
+
+repair_table_names_for_db <- function(table_names, temporary, con) {
+  if (temporary) {
+    # FIXME: Better logic for temporary table names
+    if (is_mssql(con)) {
+      names <- paste0("#", table_names)
+    } else {
+      names <- table_names
+    }
+    names <- unique_db_table_name(names)
+  } else {
+    names <- table_names
+  }
+  names <- set_names(names, table_names)
+  quote_ids(names, con)
 }

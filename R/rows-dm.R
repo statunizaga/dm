@@ -1,7 +1,7 @@
 #' Modifying rows for multiple tables
 #'
 #' @description
-#' \lifecycle{experimental}
+#' `r lifecycle::badge("experimental")`
 #'
 #' These functions provide a framework for updating data in existing tables.
 #' Unlike [compute()], [copy_to()] or [copy_dm_to()], no new tables are created
@@ -18,16 +18,90 @@
 #' Therefore, in-place operation must be requested explicitly with `in_place = TRUE`.
 #' By default, an informative message is given.
 #'
-#' @inheritParams rows_insert
+#' @inheritParams dplyr::rows_insert
 #' @param x Target `dm` object.
 #' @param y `dm` object with new data.
 #' @param ... Must be empty.
 #'
 #' @return A dm object of the same [dm_ptype()] as `x`.
-#'   If `in_place = TRUE`, [invisible] and identical to `x`.
+#'   If `in_place = TRUE`, the underlying data is updated as a side effect,
+#'   and `x` is returned, invisibly.
 #'
 #' @name rows-dm
-#' @example example/rows-dm.R
+#' @examplesIf rlang::is_installed("RSQLite") && rlang::is_installed("nycflights13")
+#' # Establish database connection:
+#' sqlite <- DBI::dbConnect(RSQLite::SQLite())
+#'
+#' # Entire dataset with all dimension tables populated
+#' # with flights and weather data truncated:
+#' flights_init <-
+#'   dm_nycflights13() %>%
+#'   dm_zoom_to(flights) %>%
+#'   filter(FALSE) %>%
+#'   dm_update_zoomed() %>%
+#'   dm_zoom_to(weather) %>%
+#'   filter(FALSE) %>%
+#'   dm_update_zoomed()
+#'
+#' # Target database:
+#' flights_sqlite <- copy_dm_to(sqlite, flights_init, temporary = FALSE)
+#' print(dm_nrow(flights_sqlite))
+#'
+#' # First update:
+#' flights_jan <-
+#'   dm_nycflights13() %>%
+#'   dm_select_tbl(flights, weather) %>%
+#'   dm_zoom_to(flights) %>%
+#'   filter(month == 1) %>%
+#'   dm_update_zoomed() %>%
+#'   dm_zoom_to(weather) %>%
+#'   filter(month == 1) %>%
+#'   dm_update_zoomed()
+#' print(dm_nrow(flights_jan))
+#'
+#' # Copy to temporary tables on the target database:
+#' flights_jan_sqlite <- copy_dm_to(sqlite, flights_jan)
+#'
+#' # Dry run by default:
+#' dm_rows_insert(flights_sqlite, flights_jan_sqlite)
+#' print(dm_nrow(flights_sqlite))
+#'
+#' # Explicitly request persistence:
+#' dm_rows_insert(flights_sqlite, flights_jan_sqlite, in_place = TRUE)
+#' print(dm_nrow(flights_sqlite))
+#'
+#' # Second update:
+#' flights_feb <-
+#'   dm_nycflights13() %>%
+#'   dm_select_tbl(flights, weather) %>%
+#'   dm_zoom_to(flights) %>%
+#'   filter(month == 2) %>%
+#'   dm_update_zoomed() %>%
+#'   dm_zoom_to(weather) %>%
+#'   filter(month == 2) %>%
+#'   dm_update_zoomed()
+#'
+#' # Copy to temporary tables on the target database:
+#' flights_feb_sqlite <- copy_dm_to(sqlite, flights_feb)
+#'
+#' # Explicit dry run:
+#' flights_new <- dm_rows_insert(
+#'   flights_sqlite,
+#'   flights_feb_sqlite,
+#'   in_place = FALSE
+#' )
+#' print(dm_nrow(flights_new))
+#' print(dm_nrow(flights_sqlite))
+#'
+#' # Check for consistency before applying:
+#' flights_new %>%
+#'   dm_examine_constraints()
+#'
+#' # Apply:
+#' dm_rows_insert(flights_sqlite, flights_feb_sqlite, in_place = TRUE)
+#' print(dm_nrow(flights_sqlite))
+#'
+#' DBI::dbDisconnect(sqlite)
 NULL
 
 
@@ -42,7 +116,7 @@ NULL
 dm_rows_insert <- function(x, y, ..., in_place = NULL) {
   check_dots_empty()
 
-  dm_rows(x, y, rows_insert, top_down = TRUE, in_place)
+  dm_rows(x, y, rows_insert, top_down = TRUE, in_place, require_keys = FALSE)
 }
 
 #' dm_rows_update
@@ -55,7 +129,7 @@ dm_rows_insert <- function(x, y, ..., in_place = NULL) {
 dm_rows_update <- function(x, y, ..., in_place = NULL) {
   check_dots_empty()
 
-  dm_rows(x, y, rows_update, top_down = TRUE, in_place)
+  dm_rows(x, y, rows_update, top_down = TRUE, in_place, require_keys = TRUE)
 }
 
 #' dm_rows_patch
@@ -69,7 +143,7 @@ dm_rows_update <- function(x, y, ..., in_place = NULL) {
 dm_rows_patch <- function(x, y, ..., in_place = NULL) {
   check_dots_empty()
 
-  dm_rows(x, y, rows_patch, top_down = TRUE, in_place)
+  dm_rows(x, y, rows_patch, top_down = TRUE, in_place, require_keys = TRUE)
 }
 
 #' dm_rows_upsert
@@ -82,7 +156,7 @@ dm_rows_patch <- function(x, y, ..., in_place = NULL) {
 dm_rows_upsert <- function(x, y, ..., in_place = NULL) {
   check_dots_empty()
 
-  dm_rows(x, y, rows_upsert, top_down = TRUE, in_place)
+  dm_rows(x, y, rows_upsert, top_down = TRUE, in_place, require_keys = TRUE)
 }
 
 #' dm_rows_delete
@@ -96,7 +170,7 @@ dm_rows_upsert <- function(x, y, ..., in_place = NULL) {
 dm_rows_delete <- function(x, y, ..., in_place = NULL) {
   check_dots_empty()
 
-  dm_rows(x, y, rows_delete, top_down = FALSE, in_place)
+  dm_rows(x, y, rows_delete, top_down = FALSE, in_place, require_keys = TRUE)
 }
 
 #' dm_rows_truncate
@@ -110,10 +184,10 @@ dm_rows_delete <- function(x, y, ..., in_place = NULL) {
 dm_rows_truncate <- function(x, y, ..., in_place = NULL) {
   check_dots_empty()
 
-  dm_rows(x, y, rows_truncate, top_down = FALSE, in_place)
+  dm_rows(x, y, rows_truncate, top_down = FALSE, in_place, require_keys = FALSE)
 }
 
-dm_rows <- function(x, y, operation, top_down, in_place = NULL) {
+dm_rows <- function(x, y, operation, top_down, in_place, require_keys) {
   dm_rows_check(x, y)
 
   if (is_null(in_place)) {
@@ -121,7 +195,7 @@ dm_rows <- function(x, y, operation, top_down, in_place = NULL) {
     in_place <- FALSE
   }
 
-  dm_rows_run(x, y, operation, top_down, in_place)
+  dm_rows_run(x, y, operation, top_down, in_place, require_keys)
 }
 
 dm_rows_check <- function(x, y) {
@@ -162,21 +236,31 @@ check_keys_compatible <- function(x, y) {
 
 
 
-dm_rows_run <- function(x, y, rows_op, top_down, in_place) {
+dm_rows_run <- function(x, y, rows_op, top_down, in_place, require_keys) {
   # topologically sort tables
   graph <- create_graph_from_dm(x, directed = TRUE)
   topo <- igraph::topo_sort(graph, mode = if (top_down) "in" else "out")
   tables <- intersect(names(topo), src_tbls(y))
 
-  # extract keys
+  # Use tables and keys
   target_tbls <- dm_get_tables_impl(x)[tables]
   tbls <- dm_get_tables_impl(y)[tables]
 
-  # FIXME: Extract keys for upsert and delete
-  # Use keyholder?
+  if (require_keys) {
+    # FIXME: Better error message if keys not found
+    keys <- deframe(dm_get_all_pks(x))[tables]
+  } else {
+    keys <- rep_along(tables, list(NULL))
+  }
+
+  # FIXME: Use keyholder?
 
   # run operation(target_tbl, source_tbl, in_place = in_place) for each table
-  op_results <- map2(target_tbls, tbls, rows_op, in_place = in_place)
+  op_results <- pmap(
+    list(x = target_tbls, y = tbls, by = keys),
+    rows_op,
+    in_place = in_place
+  )
 
   if (identical(unname(op_results), unname(target_tbls))) {
     out <- x

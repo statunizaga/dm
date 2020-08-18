@@ -1,7 +1,7 @@
 #' Prototype for a dm object
 #'
 #' @description
-#' \lifecycle{experimental}
+#' `r lifecycle::badge("experimental")`
 #'
 #' The prototype contains all tables, all primary and foreign keys,
 #' but no data.
@@ -12,15 +12,13 @@
 #'
 #' @inheritParams dm_get_fk
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf dm:::dm_has_financial()
 #' dm_financial() %>%
 #'   dm_ptype()
 #'
 #' dm_financial() %>%
 #'   dm_ptype() %>%
 #'   dm_nrow()
-#' }
 dm_ptype <- function(dm) {
   check_not_zoomed(dm)
 

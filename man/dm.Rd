@@ -45,7 +45,8 @@ For \code{dm()}, \code{new_dm()}, \code{as_dm()}: A \code{dm} object.
 
 For \code{validate_dm()}: Returns the \code{dm}, invisibly, after finishing all checks.
 
-For \code{dm_get_src()}: the \pkg{dplyr} source for a \code{dm} object.
+For \code{dm_get_src()}: the \pkg{dplyr} source for a \code{dm} object,
+or \code{NULL} if the \code{dm} objcet contains data frames.
 
 For \code{dm_get_con()}: The \code{\link[DBI:DBIConnection-class]{DBI::DBIConnection}} for \code{dm} objects.
 
@@ -90,9 +91,10 @@ To get a filtered table, use \code{dm_apply_filters_to_tbl()}, to apply filters 
 \code{as_dm()} coerces objects to the \code{dm} class
 }
 \examples{
-dm(iris, mtcars)
-new_dm(list(iris = iris, mtcars = mtcars))
-as_dm(list(iris = iris, mtcars = mtcars))
+dm(trees, mtcars)
+new_dm(list(trees = trees, mtcars = mtcars))
+as_dm(list(trees = trees, mtcars = mtcars))
+\dontshow{if (rlang::is_installed("nycflights13") && rlang::is_installed("dbplyr")) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 
 dm_nycflights13() \%>\% tbl("airports")
 dm_nycflights13() \%>\% src_tbls()
@@ -112,6 +114,7 @@ is_dm(dm_nycflights13())
 dm_nycflights13()["airports"]
 dm_nycflights13()[["airports"]]
 dm_nycflights13()$airports
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \itemize{

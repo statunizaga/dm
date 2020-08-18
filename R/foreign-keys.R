@@ -32,19 +32,11 @@
 #' @return For `dm_add_fk()`: An updated `dm` with an additional foreign key relation.
 #'
 #' @export
-#' @examples
-#' if (rlang::is_installed("nycflights13")) {
-#'   nycflights_dm <- dm(
-#'     planes = nycflights13::planes,
-#'     flights = nycflights13::flights
-#'   )
-#' } else {
-#'   message("Using mock-up data, install the nycflights13 package to fix.")
-#'   nycflights_dm <- dm(
-#'     planes = tibble(tailnum = character()),
-#'     flights = tibble(tailnum = character())
-#'   )
-#' }
+#' @examplesIf rlang::is_installed("nycflights13") && rlang::is_installed("DiagrammeR")
+#' nycflights_dm <- dm(
+#'   planes = nycflights13::planes,
+#'   flights = nycflights13::flights
+#' )
 #'
 #' nycflights_dm %>%
 #'   dm_draw()
@@ -55,10 +47,8 @@
 #'   dm_draw()
 dm_add_fk <- function(dm, table, columns, ref_table, check = FALSE) {
   check_not_zoomed(dm)
-
-  table_name <- as_name(ensym(table))
-  ref_table_name <- as_name(ensym(ref_table))
-  check_correct_input(dm, c(table_name, ref_table_name), 2L)
+  table_name <- dm_tbl_name(dm, {{ table }})
+  ref_table_name <- dm_tbl_name(dm, {{ ref_table }})
 
   table <- dm_get_tables_impl(dm)[[table_name]]
   col_expr <- enexpr(columns)
@@ -122,14 +112,16 @@ dm_add_fk_impl <- function(dm, table, column, ref_table) {
 #' @family foreign key functions
 #'
 #' @export
-#' @examples
+#' @examplesIf rlang::is_installed("nycflights13")
 #' dm_nycflights13() %>%
 #'   dm_has_fk(flights, airports)
 #' dm_nycflights13() %>%
 #'   dm_has_fk(airports, flights)
 dm_has_fk <- function(dm, table, ref_table) {
   check_not_zoomed(dm)
-  dm_has_fk_impl(dm, as_name(ensym(table)), as_name(ensym(ref_table)))
+  table_name <- dm_tbl_name(dm, {{ table }})
+  ref_table_name <- dm_tbl_name(dm, {{ ref_table }})
+  dm_has_fk_impl(dm, table_name, ref_table_name)
 }
 
 dm_has_fk_impl <- function(dm, table_name, ref_table_name) {
@@ -157,7 +149,7 @@ dm_has_fk_impl <- function(dm, table_name, ref_table_name) {
 #' pointing to the primary key of `ref_table`.
 #'
 #' @export
-#' @examples
+#' @examplesIf rlang::is_installed("nycflights13")
 #' dm_nycflights13() %>%
 #'   dm_get_fk(flights, airports)
 #' dm_nycflights13(cycle = TRUE) %>%
@@ -165,10 +157,8 @@ dm_has_fk_impl <- function(dm, table_name, ref_table_name) {
 dm_get_fk <- function(dm, table, ref_table) {
   check_not_zoomed(dm)
 
-  table_name <- as_name(ensym(table))
-  ref_table_name <- as_name(ensym(ref_table))
-
-  check_correct_input(dm, c(table_name, ref_table_name), 2L)
+  table_name <- dm_tbl_name(dm, {{ table }})
+  ref_table_name <- dm_tbl_name(dm, {{ ref_table }})
 
   new_keys(dm_get_fk2_impl(dm, table_name, ref_table_name))
 }
@@ -210,8 +200,9 @@ dm_get_fk_impl <- function(dm, table_name, ref_table_name) {
 #'
 #' @family foreign key functions
 #'
-#' @examples
-#' dm_get_all_fks(dm_nycflights13())
+#' @examplesIf rlang::is_installed("nycflights13")
+#' dm_nycflights13() %>%
+#'   dm_get_all_fks()
 #' @export
 dm_get_all_fks <- function(dm) {
   check_not_zoomed(dm)
@@ -238,8 +229,7 @@ dm_get_all_fks_impl <- function(dm) {
 #' @return For `dm_rm_fk()`: An updated `dm` without the given foreign key relation.
 #'
 #' @export
-#' @examples
-#'
+#' @examplesIf rlang::is_installed("nycflights13") && rlang::is_installed("DiagrammeR")
 #' dm_nycflights13(cycle = TRUE) %>%
 #'   dm_rm_fk(flights, dest, airports) %>%
 #'   dm_draw()
@@ -251,10 +241,8 @@ dm_rm_fk <- function(dm, table, columns, ref_table) {
   if (quo_is_missing(column_quo)) {
     abort_rm_fk_col_missing()
   }
-  table_name <- as_name(ensym(table))
-  ref_table_name <- as_name(ensym(ref_table))
-
-  check_correct_input(dm, c(table_name, ref_table_name), 2L)
+  table_name <- dm_tbl_name(dm, {{ table }})
+  ref_table_name <- dm_tbl_name(dm, {{ ref_table }})
 
   fk_cols <- dm_get_fk2_impl(dm, table_name, ref_table_name)
   if (is_empty(fk_cols)) {
@@ -291,7 +279,7 @@ dm_rm_fk_impl <- function(dm, table_name, cols, ref_table_name) {
 
 #' Foreign key candidates
 #'
-#' @description \lifecycle{questioning}
+#' @description `r lifecycle::badge("questioning")`
 #'
 #' Determine which columns would be good candidates to be used as foreign keys of a table,
 #' to reference the primary key column of another table of the [`dm`] object.
@@ -329,7 +317,7 @@ dm_rm_fk_impl <- function(dm, table_name, cols, ref_table_name) {
 #'
 #' @family foreign key functions
 #'
-#' @examples
+#' @examplesIf rlang::is_installed("nycflights13")
 #' dm_nycflights13() %>%
 #'   dm_enum_fk_candidates(flights, airports)
 #'
@@ -342,10 +330,8 @@ dm_enum_fk_candidates <- function(dm, table, ref_table) {
   # FIXME: with "direct" filter maybe no check necessary: but do we want to check
   # for tables retrieved with `tbl()` or with `dm_get_tables()[[table_name]]`
   check_no_filter(dm)
-  table_name <- as_string(ensym(table))
-  ref_table_name <- as_string(ensym(ref_table))
-
-  check_correct_input(dm, c(table_name, ref_table_name), 2L)
+  table_name <- dm_tbl_name(dm, {{ table }})
+  ref_table_name <- dm_tbl_name(dm, {{ ref_table }})
 
   ref_tbl_pk <- dm_get_pk_impl(dm, ref_table_name)
 
@@ -367,8 +353,7 @@ enum_fk_candidates <- function(zoomed_dm, ref_table) {
   check_no_filter(zoomed_dm)
 
   table_name <- orig_name_zoomed(zoomed_dm)
-  ref_table_name <- as_string(ensym(ref_table))
-  check_correct_input(zoomed_dm, ref_table_name)
+  ref_table_name <- dm_tbl_name(zoomed_dm, {{ ref_table }})
 
   ref_tbl_pk <- dm_get_pk_impl(zoomed_dm, ref_table_name)
 

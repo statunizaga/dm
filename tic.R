@@ -1,5 +1,12 @@
+get_stage("install") %>%
+  add_step(step_run_code(print(gh::gh("/rate_limit"))))
+
+get_stage("after_deploy") %>%
+  add_step(step_run_code(print(gh::gh("/rate_limit"))))
+
 if (ci_get_env("MODE") == "db-tests") {
   get_stage("install") %>%
+    add_step(step_install_deps()) %>%
     add_step(step_install_cran("devtools"))
 }
 
@@ -8,11 +15,11 @@ if (ci_has_env("TIC_DEV_VERSIONS")) {
     add_step(step_install_github(upgrade = "always", c(
       "mllg/backports",
       "r-lib/brio",
-      "r-lib/cli",
+      # "r-lib/cli", # https://github.com/r-lib/cli/issues/154
       "r-dbi/DBI",
       "tidyverse/dplyr",
       "tidyverse/glue",
-      "igraph/rigraph",
+      # "igraph/rigraph", # https://github.com/igraph/rigraph/issues/384
       "r-lib/lifecycle",
       "tidyverse/magrittr",
       "tidyverse/purrr",
@@ -36,9 +43,12 @@ if (ci_has_env("TIC_DEV_VERSIONS")) {
     )))
 }
 
-if (ci_has_env("TIC_ONLY_TESTS")) {
+if (ci_has_env("TIC_DEV_VERSIONS")) {
   get_stage("script") %>%
     add_code_step(devtools::test(reporter = c("summary")))
+} else if (ci_has_env("TIC_ONLY_TESTS")) {
+  get_stage("script") %>%
+    add_code_step(devtools::test(reporter = c("summary", "fail")))
 } else if (ci_has_env("TIC_ONLY_STYLER")) {
   if (!ci_is_tag()) {
     # For caching
@@ -61,6 +71,7 @@ if (ci_has_env("TIC_ONLY_TESTS")) {
   }
 } else if (ci_has_env("TIC_BUILD_PKGDOWN")) {
   get_stage("install") %>%
+    add_step(step_install_github("krlmlr/pkgdown@fix/examples-dontshow")) %>%
     add_step(step_install_github("cynkra/cynkratemplate"))
 
   do_pkgdown()
@@ -71,5 +82,16 @@ if (ci_has_env("TIC_ONLY_TESTS")) {
       print(sessioninfo::session_info())
     })
 
-  do_package_checks(error_on = if (getRversion() >= "3.4") "note" else "warning")
+  if (ci_has_env("TIC_ONLY_IMPORTS")) {
+    # VignetteBuilder not installed?
+    get_stage("install") %>%
+      add_step(step_install_cran("rmarkdown")) %>%
+      add_step(step_install_cran("testthat"))
+
+    do_package_checks(dependencies = c("Depends", "Imports"))
+  } else {
+    do_package_checks(
+      error_on = if (getRversion() >= "3.4") "note" else "warning"
+    )
+  }
 }

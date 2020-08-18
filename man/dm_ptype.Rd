@@ -10,7 +10,7 @@ dm_ptype(dm)
 \item{dm}{A \code{dm} object.}
 }
 \description{
-\lifecycle{experimental}
+\ifelse{html}{\out{<a href='https://www.tidyverse.org/lifecycle/#experimental'><img src='figures/lifecycle-experimental.svg' alt='Experimental lifecycle'></a>}}{\strong{Experimental}}
 
 The prototype contains all tables, all primary and foreign keys,
 but no data.
@@ -20,12 +20,12 @@ This is useful for performing creation and population of a database
 in separate steps.
 }
 \examples{
-\dontrun{
+\dontshow{if (dm:::dm_has_financial()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 dm_financial() \%>\%
   dm_ptype()
 
 dm_financial() \%>\%
   dm_ptype() \%>\%
   dm_nrow()
-}
+\dontshow{\}) # examplesIf}
 }

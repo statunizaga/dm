@@ -27,7 +27,7 @@ A tibble with the following columns:
 }
 }
 \description{
-\lifecycle{questioning}
+\ifelse{html}{\out{<a href='https://www.tidyverse.org/lifecycle/#questioning'><img src='figures/lifecycle-questioning.svg' alt='Questioning lifecycle'></a>}}{\strong{Questioning}}
 
 Determine which columns would be good candidates to be used as foreign keys of a table,
 to reference the primary key column of another table of the \code{\link{dm}} object.
@@ -59,12 +59,14 @@ most likely used interactively.
 }
 
 \examples{
+\dontshow{if (rlang::is_installed("nycflights13")) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 dm_nycflights13() \%>\%
   dm_enum_fk_candidates(flights, airports)
 
 dm_nycflights13() \%>\%
   dm_zoom_to(flights) \%>\%
   enum_fk_candidates(airports)
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 Other foreign key functions: 

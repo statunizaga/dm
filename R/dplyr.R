@@ -4,7 +4,7 @@
 #' @param .data object of class `zoomed_dm`
 #' @param ... see corresponding function in package \pkg{dplyr} or \pkg{tidyr}
 #' @name dplyr_table_manipulation
-#' @examples
+#' @examplesIf rlang::is_installed("nycflights13")
 #' zoomed <- dm_nycflights13() %>%
 #'   dm_zoom_to(flights) %>%
 #'   group_by(month) %>%
@@ -248,6 +248,11 @@ ungroup.zoomed_dm <- function(x, ...) {
   replace_zoomed_tbl(x, ungrouped_tbl)
 }
 
+#' @export
+summarise.dm <- function(.data, ...) {
+  check_zoomed(.data)
+}
+
 #' @rdname dplyr_table_manipulation
 #' @export
 summarise.zoomed_dm <- function(.data, ...) {
@@ -257,11 +262,6 @@ summarise.zoomed_dm <- function(.data, ...) {
   summarized_tbl <- summarize(tbl, ...)
   new_tracked_cols_zoom <- new_tracked_cols(.data, groups)
   replace_zoomed_tbl(.data, summarized_tbl, new_tracked_cols_zoom)
-}
-
-#' @export
-summarise.dm <- function(.data, ...) {
-  check_zoomed(.data)
 }
 
 #' @export
@@ -291,7 +291,7 @@ pull.zoomed_dm <- function(.data, var = -1, ...) {
 #' This argument is specific for the `join`-methods for `zoomed_dm`.
 #' The table's `by` column(s) are automatically added if missing in the selection.
 #' @param ... see [`dplyr::join`]
-#' @examples
+#' @examplesIf rlang::is_installed("nycflights13")
 #' flights_dm <- dm_nycflights13()
 #' dm_zoom_to(flights_dm, flights) %>%
 #'   left_join(airports, select = c(faa, name))
@@ -386,8 +386,7 @@ anti_join.zoomed_dm <- function(x, y, by = NULL, copy = NULL, suffix = NULL, sel
 }
 
 prepare_join <- function(x, y, by, selected, suffix, copy, disambiguate = TRUE) {
-  y_name <- as_string(ensym(y))
-  check_correct_input(x, y_name)
+  y_name <- dm_tbl_name(x, {{ y }})
   select_quo <- enquo(selected)
 
   if (!is_null(suffix)) message("Column names are disambiguated if necessary, `suffix` ignored.")
